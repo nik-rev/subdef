@@ -69,6 +69,9 @@
 //! }
 //! ```
 //!
+//! The syntax is a little strange, but that's a small price to pay for the convenience
+//! of automatic formatting by `rustfmt`!
+//!
 //! ## Details
 //!
 //! Fields on types marked with `#[subdef]` can have the type `[Type; { Item }]` where `Type` is the actual
