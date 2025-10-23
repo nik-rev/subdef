@@ -111,7 +111,7 @@
 //!
 //! # Propagate attributes
 //!
-//! Give attributes to `subdef(...)`, and they will be propagated recursively
+//! Give attributes to `subdef(...)`, and they will be propagated recursively to all inline types
 //!
 //! ```rust
 //! # use serde::{Serialize, Deserialize};
