@@ -197,6 +197,7 @@
 //! Example usage of these fine-tuning attributes:
 //!
 //! ```rust
+//! # use subdef::subdef;
 //! #[subdef(
 //!     debug = derive(Debug),
 //!     eq = derive(PartialEq, Eq)
