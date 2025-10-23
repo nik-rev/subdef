@@ -187,7 +187,7 @@
 //! struct SystemReport { /* ... */ }
 //! ```
 //!
-//! You can apply these attributes to the top-level, or any of the nested types:
+//! These are the fine-tuning attributes that you can use:
 //!
 //! - `#[subdef(skip(label1, label2))]` to skip applying the attribute to the type
 //! - `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
