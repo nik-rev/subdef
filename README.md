@@ -155,7 +155,7 @@ struct SystemReport {
 }
 ```
 
-Expands to this, with fields omitted:
+Expands to this:
 
 ```rust
 #[derive(Serialize, Deserialize)]

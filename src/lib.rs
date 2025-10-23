@@ -153,7 +153,7 @@
 //! }
 //! ```
 //!
-//! Expands to this, with fields omitted:
+//! Expands to this:
 //!
 //! ```rust
 //! # use serde::{Serialize, Deserialize};
