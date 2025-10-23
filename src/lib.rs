@@ -203,12 +203,13 @@ use std::{
     hash::Hash,
 };
 use syn::{
-    Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray, parenthesized,
+    parenthesized,
     parse::{Parse, ParseBuffer, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::VisitMut,
+    Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray,
 };
 
 #[proc_macro_attribute]
@@ -344,13 +345,25 @@ fn expand_field(
             ..
         }) if block.attrs.is_empty() && block.label.is_none() && block.block.stmts.len() == 1 => {
             if let syn::Stmt::Item(
-                Item::Struct(ItemStruct { ident, .. })
-                | Item::Enum(syn::ItemEnum { ident, .. })
-                | Item::Union(syn::ItemUnion { ident, .. }),
+                Item::Struct(ItemStruct {
+                    ident, generics, ..
+                })
+                | Item::Enum(syn::ItemEnum {
+                    ident, generics, ..
+                })
+                | Item::Union(syn::ItemUnion {
+                    ident, generics, ..
+                }),
             ) = block.block.stmts.first().expect(".len() == 1")
             {
+                let is_generic = generics.lt_token.is_some();
+
                 // `_` is replaced with `ident`
-                ReplaceTyInferWithIdent(ident.clone()).visit_type_mut(field_ty);
+                ReplaceTyInferWithIdent {
+                    replace_with: ident.clone(),
+                    is_generic,
+                }
+                .visit_type_mut(field_ty);
 
                 let Some(syn::Stmt::Item(item)) = block.block.stmts.iter_mut().next() else {
                     unreachable!("see match condition")
@@ -385,19 +398,24 @@ fn expand_field(
 }
 
 /// Replace all `_` types with the `ident`
-struct ReplaceTyInferWithIdent(Ident);
+struct ReplaceTyInferWithIdent {
+    replace_with: Ident,
+    is_generic: bool,
+}
 
 impl syn::visit_mut::VisitMut for ReplaceTyInferWithIdent {
     fn visit_type_mut(&mut self, ty: &mut crate::Type) {
         syn::visit_mut::visit_type_mut(self, ty);
 
         if let Type::Infer(infer) = ty {
-            let mut ident = self.0.clone();
-            ident.set_span(infer.span());
-            *ty = Type::Path(syn::TypePath {
-                qself: None,
-                path: ident.into(),
-            });
+            if !self.is_generic {
+                let mut ident = self.replace_with.clone();
+                ident.set_span(infer.span());
+                *ty = Type::Path(syn::TypePath {
+                    qself: None,
+                    path: ident.into(),
+                });
+            }
         };
     }
 }
