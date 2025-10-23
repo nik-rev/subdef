@@ -217,6 +217,9 @@
 //! - `#[subdef(skip(label1, label2))]` to skip applying the attribute to the type
 //! - `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
 //! - `#[subdef(apply(label1, label2))]` to apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
+//! - `#[subdef(apply_recursively(label1, label2))]` to recursively apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
+//!
+//! The label for the `#[derive]` attribute is `derive`.
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
