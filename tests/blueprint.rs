@@ -39,6 +39,31 @@ struct SystemReport {
     }],
 }
 
+#[subdef]
+struct UserProfile {
+    name: String,
+    address: [_; {
+        struct Address {
+            street: String,
+            city: String,
+        }
+    }],
+    friends: [Vec<_>; {
+        struct Friend {
+            name: String,
+        }
+    }],
+    status: [_; {
+        enum Status {
+            Online,
+            Offline,
+            Idle,
+        }
+    }],
+}
+
+fn foo(a: ReportKind) {}
+
 // #[derive(Serialize, Deserialize)]
 // struct SystemReport {
 //     report_id: Uuid,
