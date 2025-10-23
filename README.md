@@ -13,7 +13,7 @@ edit `lib.rs` instead, then re-run `cargo rdme` to re-generate this file
 ![msrv](https://img.shields.io/badge/msrv-1.68-blue?style=flat-square&logo=rust)
 [![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
 
-This crate provides a procedural macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it simplifies the creation of nested
+This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it simplifies the creation of nested
 structures, reduces boilerplate and helps keep logic in a single place.
 
 ```toml
