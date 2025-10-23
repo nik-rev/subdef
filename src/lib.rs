@@ -5,7 +5,7 @@
 //! ![msrv](https://img.shields.io/badge/msrv-1.65-blue?style=flat-square&logo=rust)
 //! [![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
 //!
-//! This crate provides a procedural macro `#[subdef]` - it simplifies the creation of nested
+//! This crate provides a procedural macro [`#[subdef]`](subdef) - it simplifies the creation of nested
 //! structures, reduces boilerplate and helps keep logic in a single place.
 //!
 //! ```toml
