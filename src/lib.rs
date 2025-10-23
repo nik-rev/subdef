@@ -106,8 +106,8 @@
 //! }
 //! ```
 //!
-//! The syntax is a little strange, but that's a small price to pay for the convenience
-//! of automatic formatting by `rustfmt`!
+//! Admittedly, the syntax is a little strange, but that's a small price to pay for the
+//! convenience of automatic formatting by `rustfmt`!
 //!
 //! # Propagate attributes
 //!
