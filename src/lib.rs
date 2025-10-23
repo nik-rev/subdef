@@ -109,11 +109,10 @@
 //!
 //! # Propagate attributes
 //!
-//! The `derive` attribute is propagated to all nested items. For example, this:
+//! Give attributes to `subdef(...)`, and they will be propagated recursively
 //!
 //! ```rust
-//! #[subdef]
-//! #[derive(Serialize, Deserialize)]
+//! #[subdef(derive(Serialize, Deserialize))]
 //! struct SystemReport {
 //!     report_id: Uuid,
 //!     kind: [_; {
@@ -167,51 +166,15 @@
 //! struct ApplicationConfig { ... }
 //! ```
 //!
-//! ## Propagate other attributes
-//!
-//! The `derive` is propagated by default for convenience, but you can propagate any attribute
-//! by passing it as an argument to `subdef`:
-//!
-//! ```rust
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! struct SystemReport { ... }
-//! ```
-//!
-//! The above expands to this:
-//!
-//! ```rust
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! struct SystemReport { ... }
-//!
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! pub enum ReportKind { ... }
-//!
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! struct Flags { ... }
-//!
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! struct Component { ... }
-//!
-//! #[subdef(cfg(not(windows)), object)]
-//! #[derive(Serialize, Deserialize)]
-//! struct ApplicationConfig { ... }
-//! ```
-//!
-//! ## Disable propagation (advanced)
+//! ## Fine-tune propagation
 //!
 //! You can attach labels to each attribute:
 //!
 //! ```rust
 //! #[subdef(
 //!     label1 = cfg(not(windows)),
-//!     label2 = object
+//!     label2 = derive(Serialize, Deserialize)
 //! )]
-//! #[derive(Serialize, Deserialize)]
 //! struct SystemReport { ... }
 //! ```
 //!
@@ -221,24 +184,23 @@
 //! - `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
 //! - `#[subdef(apply(label1, label2))]` to apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
 //! - `#[subdef(apply_recursively(label1, label2))]` to recursively apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
-//!
-//! The label for the `#[derive]` attribute is `derive`.
-use std::collections::{HashMap, HashSet};
 
 use proc_macro::TokenStream;
 use quote::quote;
+use std::collections::{HashMap, HashSet};
 use syn::{
     Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray, parenthesized,
     parse::{Parse, ParseBuffer, ParseStream},
-    parse_quote,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::VisitMut,
 };
 
 #[proc_macro_attribute]
-pub fn subdef(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let mut adt = syn::parse_macro_input!(input as Item);
+pub fn subdef(args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut adt = parse_macro_input!(input as Item);
+    let args = proc_macro2::TokenStream::from(args);
 
     // Errors, to report all at once for maximum error recovery
     // from rust-analyzer
@@ -252,6 +214,17 @@ pub fn subdef(_args: TokenStream, input: TokenStream) -> TokenStream {
     // Attributes that apply to the current
     let mut applicable_labels = HashSet::new();
 
+    // Expand arguments of this invocation of `#[subdef]` like any other
+    expand_subdef_attrs(
+        &mut vec![parse_quote!(#[subdef(#args)])],
+        &mut always_applicable_attrs,
+        &mut labelled_attrs,
+        &mut applicable_labels,
+        &mut errors,
+    );
+
+    // Recursively expand the actual item that the top-level `#[subdef]` was applied to,
+    // and any inline ADTs defined within.
     expand_adt(
         &mut adt,
         &mut expanded_adts,
