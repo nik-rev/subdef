@@ -193,6 +193,64 @@
 //! - `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
 //! - `#[subdef(apply(label1, label2))]` to apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
 //! - `#[subdef(apply_recursively(label1, label2))]` to recursively apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
+//!
+//! Example usage of these fine-tuning attributes:
+//!
+//! ```rust
+//! #[subdef(
+//!     debug = derive(Debug),
+//!     eq = derive(PartialEq, Eq)
+//! )]
+//! #[subdef(skip(debug), skip(eq))]
+//! struct Order {
+//!     billing_info: [_; {
+//!         #[subdef(skip_recursively(eq))]
+//!         struct BillingInfo {
+//!             payment_transaction: [_; {
+//!                 struct TransactionData {
+//!                     amount_paid_cents: u32,
+//!                 }
+//!             }],
+//!         }
+//!     }],
+//!     shipping_details: [_; {
+//!         #[subdef(apply_recursively(eq))]
+//!         struct ShippingDetails {
+//!             confirmation_status: [_; {
+//!                 #[subdef(apply(debug))]
+//!                 struct DetailsConfirmed;
+//!             }],
+//!         }
+//!     }],
+//! }
+//! ```
+//!
+//! Expansion:
+//!
+//! ```rust
+//! struct Order {
+//!     billing_info: BillingInfo,
+//!     shipping_details: ShippingDetails,
+//! }
+//!
+//! #[derive(Debug)]
+//! struct TransactionData {
+//!     amount_paid_cents: u32,
+//! }
+//!
+//! #[derive(Debug)]
+//! struct BillingInfo {
+//!     payment_transaction: TransactionData,
+//! }
+//!
+//! #[derive(PartialEq, Eq, Debug)]
+//! struct DetailsConfirmed;
+//!
+//! #[derive(PartialEq, Eq, Debug)]
+//! struct ShippingDetails {
+//!     confirmation_status: DetailsConfirmed,
+//! }
+//! ```
 
 use proc_macro::TokenStream;
 use quote::quote;
