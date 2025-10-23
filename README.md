@@ -21,9 +21,8 @@ structures, reduces boilerplate and helps keep logic in a single place.
 subdef = "0.1"
 ```
 
-This crate is a successor to [`nestify`](https://crates.io/crates/nestify).
-
-The main distinguishing feature is that items marked with `#[subdef]` can be
+It is a successor to [`nestify`](https://crates.io/crates/nestify).
+The biggest distinguishing feature is that items marked with `#[subdef]` can be
 entirely formatted by `rustfmt`.
 
 ## Usage
