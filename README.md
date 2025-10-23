@@ -1,0 +1,192 @@
+# `subdef`
+
+<!-- cargo-rdme start -->
+
+[![crates.io](https://img.shields.io/crates/v/subdef?style=flat-square&logo=rust)](https://crates.io/crates/subdef)
+[![docs.rs](https://img.shields.io/badge/docs.rs-subdef-blue?style=flat-square&logo=docs.rs)](https://docs.rs/subdef)
+![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue?style=flat-square)
+![msrv](https://img.shields.io/badge/msrv-1.65-blue?style=flat-square&logo=rust)
+[![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
+
+This crate provides a procedural macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it simplifies the creation of nested
+structures, reduces boilerplate and helps keep logic in a single place.
+
+```toml
+[dependencies]
+subdef = "0.1"
+```
+
+This crate is a successor to [`nestify`](https://crates.io/crates/nestify).
+
+The main distinguishing feature is that items marked with `#[subdef]` can be
+entirely formatted by `rustfmt` - as the syntax parses as 100% valid Rust.
+
+## Usage
+
+Apply `#[subdef]` to your type to be able to define inline types in individual fields
+
+```rust
+#[subdef]
+struct UserProfile {
+    name: String,
+    address: [_; {
+        struct Address {
+            street: String,
+            city: String
+        }
+    }],
+    friends: [Vec<_>; {
+        struct Friend {
+            name: String
+        }
+    }],
+    status: [_; {
+        enum Status {
+            Online,
+            Offline,
+            Idle
+        }
+    }]
+}
+```
+
+Expansion:
+
+```rust
+struct UserProfile {
+    name: String,
+    address: Address,
+    friends: Vec<Friend>,
+    status: Status,
+}
+struct Address {
+    street: String,
+    city: String,
+}
+struct Friend {
+    name: String,
+}
+enum Status {
+    Online,
+    Offline,
+    Idle,
+}
+```
+
+The syntax is a little strange, but that's a small price to pay for the convenience
+of automatic formatting by `rustfmt`!
+
+### Details
+
+Fields on types marked with `#[subdef]` can have the type `[Type; { Item }]` where `Type` is the actual
+type of the field, and `Item` is the `struct` or `enum`.
+
+The `Type` can contain `_`, which infers to the name of the `Item`. In the above example:
+
+- The `address` field contains `_`, which infers to be `Address`.
+- The `friends` field contains `_`, which infers to be `Friend`,
+  so `Vec<_>` is inferred to `Vec<Friend>`
+
+You can apply `#[subdef]` to enums:
+
+```rust
+#[subdef]
+pub enum One {
+    Two([_; { pub struct Two; }])
+}
+```
+
+Inline types can contain fields that have inline types themselves:
+
+```rust
+#[subdef]
+struct One {
+    two: [_; {
+        struct Two {
+            three: [_; {
+                struct Three;
+            }]
+        }
+    }]
+}
+```
+
+## Propagate attributes
+
+Give attributes to `subdef(...)`, and they will be propagated recursively
+
+```rust
+#[subdef(derive(Serialize, Deserialize))]
+struct SystemReport {
+    report_id: Uuid,
+    kind: [_; {
+        pub enum ReportKind {
+            Initial,
+            Heartbeat,
+            Shutdown,
+        }
+    }],
+    application_config: [_; {
+        struct ApplicationConfig {
+            version: String,
+            container_runtime: String,
+
+            flags: [_; {
+                struct Flags {
+                    is_admin: bool,
+                    is_preview_mode: bool,
+                    telemetry_enabled: bool,
+                }
+            }],
+            components: [Vec<_>; {
+                struct Component {
+                    name: String,
+                    version: String,
+                    maintainer: Option<String>,
+                    target_platform: String,
+                }
+            }],
+        }
+    }],
+}
+```
+
+Expands to this, with fields omitted:
+
+```rust
+#[derive(Serialize, Deserialize)]
+struct SystemReport { /* ... */ }
+
+#[derive(Serialize, Deserialize)]
+pub enum ReportKind { /* ... */ }
+
+#[derive(Serialize, Deserialize)]
+struct Flags { /* ... */ }
+
+#[derive(Serialize, Deserialize)]
+struct Component { /* ... */ }
+
+#[derive(Serialize, Deserialize)]
+struct ApplicationConfig { /* ... */ }
+```
+
+### Fine-tune propagation
+
+You can attach labels to each attribute:
+
+```rust
+#[subdef(
+    label1 = cfg(not(windows)),
+    label2 = derive(Serialize, Deserialize)
+)]
+struct SystemReport { /* ... */ }
+```
+
+You can apply these attributes to the top-level, or any of the nested types:
+
+- `#[subdef(skip(label1, label2))]` to skip applying the attribute to the type
+- `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
+- `#[subdef(apply(label1, label2))]` to apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
+- `#[subdef(apply_recursively(label1, label2))]` to recursively apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
+
+<!-- cargo-rdme end -->
