@@ -1,3 +1,4 @@
+#![feature(proc_macro_diagnostic)]
 //! [![crates.io](https://img.shields.io/crates/v/subdef?style=flat-square&logo=rust)](https://crates.io/crates/subdef)
 //! [![docs.rs](https://img.shields.io/badge/docs.rs-subdef-blue?style=flat-square&logo=docs.rs)](https://docs.rs/subdef)
 //! ![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue?style=flat-square)
@@ -310,13 +311,18 @@ fn expand_adt(
     // the actual ADT, as well as expanding any inline ADTs
     // that this ADT contains in its fields. Recursive.
     for field in fields {
+        // We clone everything since we want each field to have its own entire state
+        let mut always_applicable_attrs = always_applicable_attrs.clone();
+        let mut labelled_attrs = labelled_attrs.clone();
+        let mut applicable_labels = applicable_labels.clone();
+
         expand_field(
             field,
             expanded_adts,
             errors,
-            always_applicable_attrs,
-            labelled_attrs,
-            applicable_labels,
+            &mut always_applicable_attrs,
+            &mut labelled_attrs,
+            &mut applicable_labels,
         );
     }
 }
@@ -396,7 +402,7 @@ impl syn::visit_mut::VisitMut for ReplaceTyInferWithIdent {
     }
 }
 
-#[derive(Eq, Clone)]
+#[derive(Eq, Clone, Debug)]
 struct IdentHash(Ident);
 
 impl PartialEq for IdentHash {
@@ -443,64 +449,27 @@ fn expand_subdef_attrs(
                     always_applicable_attrs.push(attr);
                 }
                 AttrSubdefSingle::AttrLabel { label, attr } => {
-                    let span = label.span();
-
-                    if labelled_attrs.insert(IdentHash(label), attr).is_some() {
-                        errors.push(Error::new(span, "this label already exists"));
-                    };
+                    labelled_attrs.insert(IdentHash(label.clone()), attr);
+                    applicable_labels.insert(IdentHash(label));
                 }
                 AttrSubdefSingle::Skip(labels) => {
                     for label in labels {
-                        let span = label.span();
-                        let skip_label = IdentHash(label);
-
-                        if labelled_attrs.keys().all(|label| *label != skip_label) {
-                            errors.push(Error::new(span, "unknown label"));
-                        };
-                        if !skip_just_this_time.insert(skip_label) {
-                            errors.push(Error::new(span, "already skipping this label"));
-                        };
+                        skip_just_this_time.insert(IdentHash(label));
                     }
                 }
                 AttrSubdefSingle::SkipRecursively(labels) => {
                     for label in labels {
-                        let span = label.span();
-                        let remove_label = IdentHash(label);
-                        let does_label_exist =
-                            labelled_attrs.keys().any(|label| *label == remove_label);
-
-                        if does_label_exist {
-                            errors.push(Error::new(span, "unknown label"));
-                        };
-                        if !applicable_labels.remove(&remove_label) && does_label_exist {
-                            errors.push(Error::new(span, "already skipping this label"));
-                        };
+                        applicable_labels.remove(&IdentHash(label));
                     }
                 }
                 AttrSubdefSingle::Apply(labels) => {
                     for label in labels {
-                        let span = label.span();
-                        let apply_label = IdentHash(label);
-
-                        if labelled_attrs.keys().all(|label| *label != apply_label) {
-                            errors.push(Error::new(span, "unknown label"));
-                        };
-                        if !apply_just_this_time.insert(apply_label) {
-                            errors.push(Error::new(span, "already applying this label"));
-                        };
+                        apply_just_this_time.insert(IdentHash(label));
                     }
                 }
                 AttrSubdefSingle::ApplyRecursively(labels) => {
                     for label in labels {
-                        let span = label.span();
-                        let apply_label = IdentHash(label);
-
-                        if labelled_attrs.keys().all(|label| *label != apply_label) {
-                            errors.push(Error::new(span, "unknown label"));
-                        };
-                        if !applicable_labels.insert(apply_label) {
-                            errors.push(Error::new(span, "already applying this label"));
-                        };
+                        applicable_labels.insert(IdentHash(label));
                     }
                 }
             }

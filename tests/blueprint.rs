@@ -4,6 +4,9 @@
 
 use serde::Deserialize;
 use serde::Serialize;
+use static_assertions::assert_impl_all;
+use static_assertions::assert_not_impl_all;
+use std::fmt::Debug;
 use subdef::subdef;
 
 struct Uuid;
@@ -118,11 +121,6 @@ fn union() {
     };
 }
 
-fn impls_partial_ord<T: PartialOrd>() {}
-fn impls_ord<T: Ord>() {}
-fn impls_partial_eq<T: PartialEq>() {}
-fn impls_eq<T: Eq>() {}
-
 #[test]
 fn attribute_propagation() {
     #[subdef(derive(PartialEq, Eq))]
@@ -137,13 +135,8 @@ fn attribute_propagation() {
         }],
     }
 
-    impls_partial_eq::<DataReport>();
-    impls_eq::<DataReport>();
-
-    impls_partial_eq::<Kind>();
-    impls_eq::<Kind>();
-    impls_ord::<Kind>();
-    impls_partial_ord::<Kind>();
+    assert_impl_all!(DataReport: PartialEq, Eq);
+    assert_impl_all!(Kind: PartialEq, Eq, PartialOrd, Ord);
 
     // `uiud` is not present
     DataReport {
@@ -159,10 +152,9 @@ fn fine_tuned_attribute_propagation() {
         debug = derive(Debug),
         eq = derive(PartialEq, Eq)
     )]
-    #[subdef(skip(debug))]
+    #[subdef(skip(debug), skip(eq))]
     struct TopLevel {
         nested1: [_; {
-            // Skips 'serde' for this level and all children
             #[subdef(skip_recursively(eq))]
             struct Nested1 {
                 inner: [_; {
@@ -173,10 +165,8 @@ fn fine_tuned_attribute_propagation() {
             }
         }],
         nested2: [_; {
-            // Skip 'skip_all' and apply 'serde'
-            #[subdef(apply(debug), apply_recursively(eq))]
+            #[subdef(apply_recursively(eq))]
             struct Nested2 {
-                // 'serde' is applied here because of 'apply_recursively' on Nested2
                 inner: [_; {
                     #[subdef(apply(debug))]
                     struct Inner2;
@@ -185,185 +175,15 @@ fn fine_tuned_attribute_propagation() {
         }],
     }
 
-    // Logical expansion assertion:
-    // - TopLevel: Debug, Serialize, Deserialize (by default, all labels are applicable)
-    // - Nested1: Debug (because 'serde' is skipped recursively)
-    // - Inner1: Debug (inherited skip of 'serde' from Nested1)
-    // - Nested2: Serialize, Deserialize (because 'skip_all' is applied and 'serde' is applied recursively)
-    // - Inner2: Serialize, Deserialize (inherited apply of 'serde' from Nested2)
+    assert_not_impl_all!(TopLevel: Debug, Eq);
+
+    assert_impl_all!(Nested1: Debug);
+    assert_not_impl_all!(Nested1: PartialEq, Eq);
+
+    assert_not_impl_all!(Inner1: PartialEq, Eq);
+    assert_impl_all!(Inner1: Debug);
+
+    assert_impl_all!(Nested2: Eq, PartialEq);
+
+    assert_impl_all!(Inner2: Debug, Eq, PartialEq);
 }
-
-#[subdef]
-struct SystemReport {
-    report_id: Uuid,
-    kind: [_; {
-        pub enum ReportKind {
-            Initial,
-            Heartbeat,
-            Shutdown,
-        }
-    }],
-    application_config: [_; {
-        struct ApplicationConfig {
-            version: String,
-            container_runtime: String,
-
-            flags: [_; {
-                struct Flags {
-                    is_admin: bool,
-                    is_preview_mode: bool,
-                    telemetry_enabled: bool,
-                }
-            }],
-            components: [Vec<_>; {
-                struct Component {
-                    name: String,
-                    version: String,
-                    maintainer: Option<String>,
-                    target_platform: String,
-                }
-            }],
-        }
-    }],
-}
-
-#[subdef]
-struct UserProfile {
-    name: String,
-    address: [_; {
-        struct Address {
-            street: String,
-            city: String,
-        }
-    }],
-    friends: [Vec<_>; {
-        struct Friend {
-            name: String,
-        }
-    }],
-    status: [_; {
-        enum Status {
-            Online,
-            Offline,
-            Idle,
-        }
-    }],
-}
-
-fn foo(a: ReportKind) {}
-
-// #[derive(Serialize, Deserialize)]
-// struct SystemReport {
-//     report_id: Uuid,
-//     kind: ReportKind,
-//     application_config: ApplicationConfig,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// struct ApplicationConfig {
-//     version: String,
-//     container_runtime: String,
-
-//     flags: Flags,
-//     components: Vec<Component>,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// pub enum ReportKind {
-//     Initial,
-//     Heartbeat,
-//     Shutdown,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// struct Flags {
-//     is_admin: bool,
-//     is_preview_mode: bool,
-//     telemetry_enabled: bool,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// struct Component {
-//     name: String,
-//     version: String,
-//     maintainer: Option<String>,
-//     target_platform: String,
-// }
-
-// nestify::nest! {
-//     #[derive(Deserialize, Serialize)]
-//     pub struct SystemReport {
-//         #[serde(skip_serializing)]
-//         report_id: Uuid,
-
-//         kind: #[derive(Deserialize, Serialize)]
-//         pub enum ReportKind {
-//             Initial,
-//             Heartbeat,
-//             Shutdown,
-//         },
-
-//         application_config: #[derive(Deserialize, Serialize)]
-//         struct ApplicationConfig {
-//             version: String,
-//             container_runtime: String,
-
-//             flags: #[derive(Deserialize, Serialize)] struct Flags {
-//                 is_admin: bool,
-//                 is_preview_mode: bool,
-//                 telemetry_enabled: bool,
-//             },
-
-//             components: Vec<#[derive(Deserialize, Serialize)] struct Component {
-//                 name: String,
-//                 version: String,
-//                 maintainer: Option<String>,
-//                 target_platform: String
-//             }>
-//         },
-
-//         system_info: #[derive(Deserialize, Serialize)] struct SystemInfo {
-//             core_version: String,
-
-//             #[serde(rename = "runtime")]
-//             system_runtime: String,
-
-//             os: #[derive(Deserialize, Serialize)]
-//             pub enum OperatingSystem {
-//                 Linux,
-//                 Windows,
-//                 MacOS,
-//                 // Using a tuple variant for unknown OS
-//                 Other(String)
-//             },
-
-//             // Drivers section now utilizes inline enums for 'r#type'
-//             drivers: #[derive(Deserialize, Serialize)] struct Drivers {
-//                 backup: #[derive(Deserialize, Serialize)] struct Backup {
-//                     // --- NEW: Inline Enum for Backup Driver Type ---
-//                     r#type: #[derive(Deserialize, Serialize)]
-//                     pub enum BackupDriverType {
-//                         Local,
-//                         S3,
-//                         GCP,
-//                     }
-//                 },
-
-//                 cache: #[derive(Deserialize, Serialize)] struct Cache {
-//                     // --- NEW: Inline Enum for Cache Driver Type ---
-//                     r#type: #[derive(Deserialize, Serialize)]
-//                     pub enum CacheDriverType {
-//                         File,
-//                         Redis,
-//                         Memcached,
-//                     }
-//                 },
-
-//                 database: #[derive(Deserialize, Serialize)] struct Database {
-//                     r#type: String, // Kept as String for flexibility
-//                     version: String
-//                 }
-//             }
-//         }
-//     }
-// }
