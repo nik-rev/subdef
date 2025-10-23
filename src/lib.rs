@@ -103,6 +103,120 @@
 //!     }]
 //! }
 //! ```
+//!
+//! # Propagate attributes
+//!
+//! The `derive` attribute is propagated to all nested items. For example, this:
+//!
+//! ```rust
+//! #[subdef]
+//! #[derive(Serialize, Deserialize)]
+//! struct SystemReport {
+//!     report_id: Uuid,
+//!     kind: [_; {
+//!         pub enum ReportKind {
+//!             Initial,
+//!             Heartbeat,
+//!             Shutdown,
+//!         }
+//!     }],
+//!     application_config: [_; {
+//!         struct ApplicationConfig {
+//!             version: String,
+//!             container_runtime: String,
+//!
+//!             flags: [_; {
+//!                 struct Flags {
+//!                     is_admin: bool,
+//!                     is_preview_mode: bool,
+//!                     telemetry_enabled: bool,
+//!                 }
+//!             }],
+//!             components: [Vec<_>; {
+//!                 struct Component {
+//!                     name: String,
+//!                     version: String,
+//!                     maintainer: Option<String>,
+//!                     target_platform: String,
+//!                 }
+//!             }],
+//!         }
+//!     }],
+//! }
+//! ```
+//!
+//! Expands to this, with fields omitted:
+//!
+//! ```rust
+//! #[derive(Serialize, Deserialize)]
+//! struct SystemReport { ... }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! pub enum ReportKind { ... }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Flags { ... }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Component { ... }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct ApplicationConfig { ... }
+//! ```
+//!
+//! ## Propagate other attributes
+//!
+//! The `derive` is propagated by default for convenience, but you can propagate any attribute
+//! by passing it as an argument to `subdef`:
+//!
+//! ```rust
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! struct SystemReport { ... }
+//! ```
+//!
+//! The above expands to this:
+//!
+//! ```rust
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! struct SystemReport { ... }
+//!
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! pub enum ReportKind { ... }
+//!
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! struct Flags { ... }
+//!
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! struct Component { ... }
+//!
+//! #[subdef(cfg(not(windows)), object)]
+//! #[derive(Serialize, Deserialize)]
+//! struct ApplicationConfig { ... }
+//! ```
+//!
+//! ## Disable propagation (advanced)
+//!
+//! You can attach labels to each attribute:
+//!
+//! ```rust
+//! #[subdef(
+//!     label1 = cfg(not(windows)),
+//!     label2 = object
+//! )]
+//! #[derive(Serialize, Deserialize)]
+//! struct SystemReport { ... }
+//! ```
+//!
+//! You can apply these attributes to the top-level, or any of the nested types:
+//!
+//! - `#[subdef(skip(label1, label2))]` to skip applying the attribute to the type
+//! - `#[subdef(skip_recursively(label1, label2))]` to recursively skip applying the attribute to the type
+//! - `#[subdef(apply(label1, label2))]` to apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
