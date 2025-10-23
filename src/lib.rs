@@ -223,21 +223,45 @@
 //! - `#[subdef(apply_recursively(label1, label2))]` to recursively apply the attribute, overriding any previous `#[subdef(skip_recursively)]`
 //!
 //! The label for the `#[derive]` attribute is `derive`.
+use std::collections::{HashMap, HashSet};
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Error, Expr, Field, Ident, Item, ItemStruct, Type, TypeArray, spanned::Spanned,
+    Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray, parenthesized,
+    parse::{Parse, ParseBuffer, ParseStream},
+    parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
     visit_mut::VisitMut,
 };
 
 #[proc_macro_attribute]
 pub fn subdef(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let mut input = syn::parse_macro_input!(input as Item);
+    let mut adt = syn::parse_macro_input!(input as Item);
+
+    // Errors, to report all at once for maximum error recovery
+    // from rust-analyzer
     let mut errors = Vec::new();
+    // The top-level list of ADTs that we will output
     let mut expanded_adts = Vec::new();
+    // These attributes can never be disabled. They don't have a label.
+    let mut always_applicable_attrs = Vec::new();
+    // Attributes with a label.
+    let mut labelled_attrs = HashMap::new();
+    // Attributes that apply to the current
+    let mut applicable_labels = HashSet::new();
 
-    expand_adt(&mut input, &mut expanded_adts, &mut errors);
+    expand_adt(
+        &mut adt,
+        &mut expanded_adts,
+        &mut errors,
+        &mut always_applicable_attrs,
+        &mut labelled_attrs,
+        &mut applicable_labels,
+    );
 
+    // Report all errors at once, but still give something for rust-analyzer to handle
     let errors = errors
         .into_iter()
         .reduce(|mut errors, error| {
@@ -248,7 +272,7 @@ pub fn subdef(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     quote! {
         #errors
-        #input
+        #adt
         #(#expanded_adts)*
     }
     .into()
@@ -257,35 +281,70 @@ pub fn subdef(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// Expands the ADT, generating the true value of all the fields.
 /// Any inline-adts are lifted to the outer scope. This process is recursive,
 /// as inline adts may themselves contain fields that contain inline adts.
-fn expand_adt(adt: &mut Item, expanded_adts: &mut Vec<Item>, errors: &mut Vec<Error>) {
-    match adt {
-        Item::Struct(data_struct) => {
-            for field in &mut data_struct.fields {
-                expand_field(field, expanded_adts, errors);
-            }
+fn expand_adt(
+    adt: &mut Item,
+    expanded_adts: &mut Vec<Item>,
+    errors: &mut Vec<Error>,
+    always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
+    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<String>,
+) {
+    let (attrs, fields): (_, Box<dyn Iterator<Item = &mut Field>>) = match adt {
+        Item::Struct(adt) => (&mut adt.attrs, Box::new(adt.fields.iter_mut())),
+        Item::Enum(adt) => (
+            &mut adt.attrs,
+            Box::new(
+                adt.variants
+                    .iter_mut()
+                    .flat_map(|variant| variant.fields.iter_mut()),
+            ),
+        ),
+        Item::Union(adt) => (&mut adt.attrs, Box::new(adt.fields.named.iter_mut())),
+        item => {
+            errors.push(Error::new(
+                item.span(),
+                "expected `struct`, `enum`, or `union`",
+            ));
+            return;
         }
-        Item::Enum(data_enum) => {
-            for variant in &mut data_enum.variants {
-                for field in &mut variant.fields {
-                    expand_field(field, expanded_adts, errors);
-                }
-            }
-        }
-        Item::Union(data_union) => {
-            for field in &mut data_union.fields.named {
-                expand_field(field, expanded_adts, errors);
-            }
-        }
-        item => errors.push(Error::new(
-            item.span(),
-            "expected `struct`, `enum` or `union`",
-        )),
+    };
+
+    // Expand `#[subdef]` attributes, applying all attributes
+    // that should be applied to this ADT, and recording any new
+    // attributes for future nested ADTs
+    expand_subdef_attrs(
+        attrs,
+        always_applicable_attrs,
+        labelled_attrs,
+        applicable_labels,
+        errors,
+    );
+
+    // Expand each type to its true field, and generate
+    // the actual ADT, as well as expanding any inline ADTs
+    // that this ADT contains in its fields. Recursive.
+    for field in fields {
+        expand_field(
+            field,
+            expanded_adts,
+            errors,
+            always_applicable_attrs,
+            labelled_attrs,
+            applicable_labels,
+        );
     }
 }
 
 /// Expands a field into the true type. If this field contains a nested adt, this adt
 /// is added to the `output`
-fn expand_field(field: &mut Field, expanded_adts: &mut Vec<Item>, errors: &mut Vec<Error>) {
+fn expand_field(
+    field: &mut Field,
+    expanded_adts: &mut Vec<Item>,
+    errors: &mut Vec<Error>,
+    always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
+    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<String>,
+) {
     match &mut field.ty {
         Type::Array(TypeArray {
             elem: field_ty,
@@ -305,8 +364,15 @@ fn expand_field(field: &mut Field, expanded_adts: &mut Vec<Item>, errors: &mut V
                     unreachable!("see match condition")
                 };
 
-                // expand fields of this item, if they themselves contain nested adts
-                expand_adt(item, expanded_adts, errors);
+                // expand fields of this adt, if it itself contains nested adts
+                expand_adt(
+                    item,
+                    expanded_adts,
+                    errors,
+                    always_applicable_attrs,
+                    labelled_attrs,
+                    applicable_labels,
+                );
 
                 let item = std::mem::replace(item, syn::Item::Verbatim(TokenStream::new().into()));
 
@@ -342,4 +408,161 @@ impl syn::visit_mut::VisitMut for ReplaceTyInferWithIdent {
             });
         };
     }
+}
+
+/// Expand all `#[subdef]` attributes, which contain a list of `AttrSubdefSingle`
+fn expand_subdef_attrs(
+    adt_attrs: &mut Vec<Attribute>,
+    always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
+    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<String>,
+    errors: &mut Vec<Error>,
+) {
+    // Skip these labels for this ADT, but not nested ADTs
+    let mut skip_just_this_time = HashSet::new();
+    // Apply these labels for this ADT, but not nested ADTs
+    let mut apply_just_this_time = HashSet::new();
+
+    // Remove all `#[subdef(..)]` attributes that there are, and iterate
+    // over the removed elements
+    for attr in adt_attrs.extract_if(.., |attr| attr.path().is_ident("subdef")) {
+        let subdefs = match attr
+            .parse_args_with(Punctuated::<AttrSubdefSingle, Token![,]>::parse_terminated)
+        {
+            Ok(subdefs) => subdefs,
+            Err(err) => {
+                errors.push(err);
+                continue;
+            }
+        };
+
+        for subdef in subdefs {
+            match subdef {
+                AttrSubdefSingle::Attr { attr } => {
+                    always_applicable_attrs.push(attr);
+                }
+                AttrSubdefSingle::AttrLabel { label, attr } => {
+                    labelled_attrs.insert(label.to_string(), attr);
+                }
+                AttrSubdefSingle::Skip(labels) => {
+                    for label in labels {
+                        skip_just_this_time.insert(label.to_string());
+                    }
+                }
+                AttrSubdefSingle::SkipRecursively(labels) => {
+                    for label in labels {
+                        applicable_labels.remove(&label.to_string());
+                    }
+                }
+                AttrSubdefSingle::Apply(labels) => {
+                    for label in labels {
+                        apply_just_this_time.insert(label.to_string());
+                    }
+                }
+                AttrSubdefSingle::ApplyRecursively(labels) => {
+                    for label in labels {
+                        applicable_labels.insert(label.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Labels that apply to this ADT
+    let applicable_labels = applicable_labels
+        .intersection(&apply_just_this_time)
+        .cloned()
+        .collect::<HashSet<_>>();
+    let applicable_labels = applicable_labels
+        .difference(&skip_just_this_time)
+        .collect::<HashSet<_>>();
+
+    // All attributes we'll apply to the generated ADT
+    let attrs = always_applicable_attrs
+        .iter()
+        .chain(
+            labelled_attrs
+                .iter()
+                .filter_map(|(label, attr)| applicable_labels.contains(label).then_some(attr)),
+        )
+        .cloned();
+
+    // Add attributes to the generated ADT
+    adt_attrs.extend(attrs.map(|attr| parse_quote!(#[#attr])));
+}
+
+/// A single attribute
+///
+/// ```rust
+/// #[subdef(attr(whatever), label = attr(whatever), skip(label))]
+/// //       ^^^^^^^^^^^^^^
+/// //                       ^^^^^^^^^^^^^^^^^^^^^^
+/// //                                               ^^^^^^^^^^^^
+/// ```
+///
+/// Each of the above `^^^` is this type
+enum AttrSubdefSingle {
+    /// A stream corresponding to any attribute at all
+    ///
+    /// `attr(whatever)`
+    Attr { attr: proc_macro2::TokenStream },
+    /// A label associated with any attribute
+    ///
+    /// `label = attr(whatever)`
+    AttrLabel {
+        label: Ident,
+        attr: proc_macro2::TokenStream,
+    },
+    /// `skip(label1, label2)`
+    Skip(Punctuated<Ident, Token![,]>),
+    /// `skip_recursively(label1, label2)`
+    SkipRecursively(Punctuated<Ident, Token![,]>),
+    /// `apply(label1, label2)`
+    Apply(Punctuated<Ident, Token![,]>),
+    /// `apply_recursively(label1, label2)`
+    ApplyRecursively(Punctuated<Ident, Token![,]>),
+}
+
+impl Parse for AttrSubdefSingle {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let single = if input.parse::<Option<kw::skip>>().is_ok() {
+            Self::Skip
+        } else if input.parse::<Option<kw::skip_recursively>>().is_ok() {
+            Self::SkipRecursively
+        } else if input.parse::<Option<kw::apply>>().is_ok() {
+            Self::Apply
+        } else if input.parse::<Option<kw::apply_recursively>>().is_ok() {
+            Self::ApplyRecursively
+        } else if input.peek2(Token![=]) {
+            let label = input.parse::<Ident>()?;
+            input.parse::<Token![=]>()?;
+            let attr = parse_until_comma(input)?;
+            input.parse::<Option<Token![,]>>()?;
+            return Ok(Self::AttrLabel { label, attr });
+        } else {
+            let attr = parse_until_comma(input)?;
+            input.parse::<Option<Token![,]>>()?;
+            return Ok(Self::Attr { attr });
+        };
+        let labels;
+        parenthesized!(labels in input);
+        Ok(single(labels.parse_terminated(Ident::parse, Token![,])?))
+    }
+}
+
+/// Parse everything into a `TokenStream` until we hit a comma. The comma is not included.
+fn parse_until_comma(input: &ParseBuffer) -> syn::Result<proc_macro2::TokenStream> {
+    let mut attr = proc_macro2::TokenStream::new();
+    while !input.peek(Token![,]) && !input.is_empty() {
+        let tt: proc_macro2::TokenTree = input.parse()?;
+        attr.extend([tt]);
+    }
+    Ok(attr)
+}
+
+mod kw {
+    syn::custom_keyword!(skip);
+    syn::custom_keyword!(skip_recursively);
+    syn::custom_keyword!(apply);
+    syn::custom_keyword!(apply_recursively);
 }
