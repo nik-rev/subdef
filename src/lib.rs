@@ -22,6 +22,7 @@
 //! Apply `#[subdef]` to your type to be able to define inline types in individual fields
 //!
 //! ```rust
+//! # use subdef::subdef;
 //! #[subdef]
 //! struct UserProfile {
 //!     name: String,
@@ -86,15 +87,17 @@
 //! You can apply `#[subdef]` to enums:
 //!
 //! ```rust
-//!  #[subdef]
-//!  pub enum One {
-//!      Two([_, { pub struct Two; }])
-//!  }
+//! # use subdef::subdef;
+//! #[subdef]
+//! pub enum One {
+//!     Two([_; { pub struct Two; }])
+//! }
 //! ```
 //!
 //! Inline types can contain fields that have inline types themselves:
 //!
 //! ```rust
+//! # use subdef::subdef;
 //! #[subdef]
 //! struct One {
 //!     two: [_; {
@@ -112,6 +115,10 @@
 //! Give attributes to `subdef(...)`, and they will be propagated recursively
 //!
 //! ```rust
+//! # use serde::{Serialize, Deserialize};
+//! # use subdef::subdef;
+//! # #[derive(Serialize, Deserialize)]
+//! # struct Uuid;
 //! #[subdef(derive(Serialize, Deserialize))]
 //! struct SystemReport {
 //!     report_id: Uuid,
@@ -150,20 +157,21 @@
 //! Expands to this, with fields omitted:
 //!
 //! ```rust
+//! # use serde::{Serialize, Deserialize};
 //! #[derive(Serialize, Deserialize)]
-//! struct SystemReport { ... }
+//! struct SystemReport { /* ... */ }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! pub enum ReportKind { ... }
+//! pub enum ReportKind { /* ... */ }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct Flags { ... }
+//! struct Flags { /* ... */ }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct Component { ... }
+//! struct Component { /* ... */ }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct ApplicationConfig { ... }
+//! struct ApplicationConfig { /* ... */ }
 //! ```
 //!
 //! ## Fine-tune propagation
@@ -171,11 +179,13 @@
 //! You can attach labels to each attribute:
 //!
 //! ```rust
+//! # use subdef::subdef;
+//! # use serde::{Serialize, Deserialize};
 //! #[subdef(
 //!     label1 = cfg(not(windows)),
 //!     label2 = derive(Serialize, Deserialize)
 //! )]
-//! struct SystemReport { ... }
+//! struct SystemReport { /* ... */ }
 //! ```
 //!
 //! You can apply these attributes to the top-level, or any of the nested types:
@@ -187,7 +197,10 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 use syn::{
     Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray, parenthesized,
     parse::{Parse, ParseBuffer, ParseStream},
@@ -259,8 +272,8 @@ fn expand_adt(
     expanded_adts: &mut Vec<Item>,
     errors: &mut Vec<Error>,
     always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
-    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
-    applicable_labels: &mut HashSet<String>,
+    labelled_attrs: &mut HashMap<IdentHash, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<IdentHash>,
 ) {
     let (attrs, fields): (_, Box<dyn Iterator<Item = &mut Field>>) = match adt {
         Item::Struct(adt) => (&mut adt.attrs, Box::new(adt.fields.iter_mut())),
@@ -315,8 +328,8 @@ fn expand_field(
     expanded_adts: &mut Vec<Item>,
     errors: &mut Vec<Error>,
     always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
-    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
-    applicable_labels: &mut HashSet<String>,
+    labelled_attrs: &mut HashMap<IdentHash, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<IdentHash>,
 ) {
     match &mut field.ty {
         Type::Array(TypeArray {
@@ -383,12 +396,27 @@ impl syn::visit_mut::VisitMut for ReplaceTyInferWithIdent {
     }
 }
 
+#[derive(Eq, Clone)]
+struct IdentHash(Ident);
+
+impl PartialEq for IdentHash {
+    fn eq(&self, other: &Self) -> bool {
+        other.0 == self.0
+    }
+}
+
+impl Hash for IdentHash {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_string().hash(state);
+    }
+}
+
 /// Expand all `#[subdef]` attributes, which contain a list of `AttrSubdefSingle`
 fn expand_subdef_attrs(
     adt_attrs: &mut Vec<Attribute>,
     always_applicable_attrs: &mut Vec<proc_macro2::TokenStream>,
-    labelled_attrs: &mut HashMap<String, proc_macro2::TokenStream>,
-    applicable_labels: &mut HashSet<String>,
+    labelled_attrs: &mut HashMap<IdentHash, proc_macro2::TokenStream>,
+    applicable_labels: &mut HashSet<IdentHash>,
     errors: &mut Vec<Error>,
 ) {
     // Skip these labels for this ADT, but not nested ADTs
@@ -415,26 +443,64 @@ fn expand_subdef_attrs(
                     always_applicable_attrs.push(attr);
                 }
                 AttrSubdefSingle::AttrLabel { label, attr } => {
-                    labelled_attrs.insert(label.to_string(), attr);
+                    let span = label.span();
+
+                    if labelled_attrs.insert(IdentHash(label), attr).is_some() {
+                        errors.push(Error::new(span, "this label already exists"));
+                    };
                 }
                 AttrSubdefSingle::Skip(labels) => {
                     for label in labels {
-                        skip_just_this_time.insert(label.to_string());
+                        let span = label.span();
+                        let skip_label = IdentHash(label);
+
+                        if labelled_attrs.keys().all(|label| *label != skip_label) {
+                            errors.push(Error::new(span, "unknown label"));
+                        };
+                        if !skip_just_this_time.insert(skip_label) {
+                            errors.push(Error::new(span, "already skipping this label"));
+                        };
                     }
                 }
                 AttrSubdefSingle::SkipRecursively(labels) => {
                     for label in labels {
-                        applicable_labels.remove(&label.to_string());
+                        let span = label.span();
+                        let remove_label = IdentHash(label);
+                        let does_label_exist =
+                            labelled_attrs.keys().any(|label| *label == remove_label);
+
+                        if does_label_exist {
+                            errors.push(Error::new(span, "unknown label"));
+                        };
+                        if !applicable_labels.remove(&remove_label) && does_label_exist {
+                            errors.push(Error::new(span, "already skipping this label"));
+                        };
                     }
                 }
                 AttrSubdefSingle::Apply(labels) => {
                     for label in labels {
-                        apply_just_this_time.insert(label.to_string());
+                        let span = label.span();
+                        let apply_label = IdentHash(label);
+
+                        if labelled_attrs.keys().all(|label| *label != apply_label) {
+                            errors.push(Error::new(span, "unknown label"));
+                        };
+                        if !apply_just_this_time.insert(apply_label) {
+                            errors.push(Error::new(span, "already applying this label"));
+                        };
                     }
                 }
                 AttrSubdefSingle::ApplyRecursively(labels) => {
                     for label in labels {
-                        applicable_labels.insert(label.to_string());
+                        let span = label.span();
+                        let apply_label = IdentHash(label);
+
+                        if labelled_attrs.keys().all(|label| *label != apply_label) {
+                            errors.push(Error::new(span, "unknown label"));
+                        };
+                        if !applicable_labels.insert(apply_label) {
+                            errors.push(Error::new(span, "already applying this label"));
+                        };
                     }
                 }
             }
@@ -443,7 +509,7 @@ fn expand_subdef_attrs(
 
     // Labels that apply to this ADT
     let applicable_labels = applicable_labels
-        .intersection(&apply_just_this_time)
+        .union(&apply_just_this_time)
         .cloned()
         .collect::<HashSet<_>>();
     let applicable_labels = applicable_labels
@@ -498,24 +564,25 @@ enum AttrSubdefSingle {
 
 impl Parse for AttrSubdefSingle {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let single = if input.parse::<Option<kw::skip>>().is_ok() {
+        let single = if input.parse::<Option<kw::skip>>()?.is_some() {
             Self::Skip
-        } else if input.parse::<Option<kw::skip_recursively>>().is_ok() {
+        } else if input.parse::<Option<kw::skip_recursively>>()?.is_some() {
             Self::SkipRecursively
-        } else if input.parse::<Option<kw::apply>>().is_ok() {
+        } else if input.parse::<Option<kw::apply>>()?.is_some() {
             Self::Apply
-        } else if input.parse::<Option<kw::apply_recursively>>().is_ok() {
+        } else if input.parse::<Option<kw::apply_recursively>>()?.is_some() {
             Self::ApplyRecursively
         } else if input.peek2(Token![=]) {
             let label = input.parse::<Ident>()?;
             input.parse::<Token![=]>()?;
-            let attr = parse_until_comma(input)?;
-            input.parse::<Option<Token![,]>>()?;
-            return Ok(Self::AttrLabel { label, attr });
+            return Ok(Self::AttrLabel {
+                label,
+                attr: parse_until_comma(input)?,
+            });
         } else {
-            let attr = parse_until_comma(input)?;
-            input.parse::<Option<Token![,]>>()?;
-            return Ok(Self::Attr { attr });
+            return Ok(Self::Attr {
+                attr: parse_until_comma(input)?,
+            });
         };
         let labels;
         parenthesized!(labels in input);
