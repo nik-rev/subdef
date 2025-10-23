@@ -187,3 +187,56 @@ fn fine_tuned_attribute_propagation() {
 
     assert_impl_all!(Inner2: Debug, Eq, PartialEq);
 }
+
+#[test]
+fn expect_no_expansion() {
+    #[subdef]
+    struct NoSubdef {
+        field1: String,
+        field2: [u8; 8],
+        field3: [u32; {
+            const X: usize = 10;
+            X + 1
+        }],
+        field4: [f64; {
+            struct S;
+            let _ = S {};
+            0
+        }],
+    }
+
+    NoSubdef {
+        field1: String::new(),
+        field2: [0; 8],
+        field3: [0; 11],
+        field4: [0.0; 0],
+    };
+}
+
+#[test]
+fn edge_case_generics_and_inference() {
+    #[subdef]
+    struct GenericContainer<T, const N: usize>
+    where
+        T: Debug,
+    {
+        item: [Option<std::sync::Arc<Item<T, N>>>; {
+            struct Item<T, const N: usize>
+            where
+                T: Debug,
+            {
+                payload: T,
+                size: [u8; N],
+            }
+        }],
+        phantom: std::marker::PhantomData<T>,
+    }
+
+    GenericContainer::<u32, 5> {
+        item: Some(std::sync::Arc::new(Item {
+            payload: 10,
+            size: [0; 5],
+        })),
+        phantom: std::marker::PhantomData,
+    };
+}
