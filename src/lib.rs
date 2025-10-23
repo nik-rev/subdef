@@ -15,7 +15,7 @@
 //! This crate is a successor to [`nestify`](https://crates.io/crates/nestify).
 //!
 //! The main distinguishing feature is that items marked with `#[subdef]` can be
-//! entirely formatted by `rustfmt` - as the syntax parses as 100% valid Rust.
+//! entirely formatted by `rustfmt`.
 //!
 //! # Usage
 //!
