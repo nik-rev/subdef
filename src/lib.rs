@@ -1,4 +1,3 @@
-#![feature(proc_macro_diagnostic)]
 //! [![crates.io](https://img.shields.io/crates/v/subdef?style=flat-square&logo=rust)](https://crates.io/crates/subdef)
 //! [![docs.rs](https://img.shields.io/badge/docs.rs-subdef-blue?style=flat-square&logo=docs.rs)](https://docs.rs/subdef)
 //! ![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue?style=flat-square)
@@ -448,9 +447,22 @@ fn expand_subdef_attrs(
     // Apply these labels for this ADT, but not nested ADTs
     let mut apply_just_this_time = HashSet::new();
 
+    // Equivalent to: `adt_attrs.extract_if(.., |attr| attr.path().is_ident("subdef"))`
+    // Which is stable in 1.87, but our MSRV is lower than that
+    let mut extracted = Vec::new();
+    adt_attrs.retain_mut(|attr| {
+        if attr.path().is_ident("subdef") {
+            extracted.push(std::mem::replace(attr, parse_quote!(#[dummy])));
+            // We'll then just remove teh dummy attribute
+            false
+        } else {
+            true
+        }
+    });
+
     // Remove all `#[subdef(..)]` attributes that there are, and iterate
     // over the removed elements
-    for attr in adt_attrs.extract_if(.., |attr| attr.path().is_ident("subdef")) {
+    for attr in extracted {
         let subdefs = match attr
             .parse_args_with(Punctuated::<AttrSubdefSingle, Token![,]>::parse_terminated)
         {

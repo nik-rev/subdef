@@ -2,6 +2,13 @@
 name = "subdef"
 version = "0.1.0"
 edition = "2021"
+description = "Provides an attribute macro to define nested structures in a single place"
+rust-version = "1.68"
+authors = ["Nik Revenco <pm@nikrev.com>"]
+repository = "https://github.com/nik-rev/subdef"
+keywords = ["macros", "attribute", "nested", "serde", "nestify"]
+categories = ["development-tools", "development-tools::procedural-macro-helpers", "no-std", "no-std::no-alloc", "rust-patterns"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "extra-traits", "visit-mut"] }
