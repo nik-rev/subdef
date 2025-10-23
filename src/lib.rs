@@ -69,10 +69,7 @@
 //! }
 //! ```
 //!
-//! The syntax is a little strange, but that's a small price to pay for the convenience
-//! of automatic formatting by `rustfmt`!
-//!
-//! ## Details
+//! ## How it works
 //!
 //! Fields on types marked with `#[subdef]` can have the type `[Type; { Item }]` where `Type` is the actual
 //! type of the field, and `Item` is the `struct` or `enum`.
@@ -108,6 +105,9 @@
 //!     }]
 //! }
 //! ```
+//!
+//! The syntax is a little strange, but that's a small price to pay for the convenience
+//! of automatic formatting by `rustfmt`!
 //!
 //! # Propagate attributes
 //!
