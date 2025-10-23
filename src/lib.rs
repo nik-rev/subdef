@@ -158,19 +158,41 @@
 //! ```rust
 //! # use serde::{Serialize, Deserialize};
 //! #[derive(Serialize, Deserialize)]
-//! struct SystemReport { /* ... */ }
+//! struct SystemReport {
+//!     report_id: Uuid,
+//!     kind: ReportKind,
+//!     application_config: ApplicationConfig
+//! }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! pub enum ReportKind { /* ... */ }
+//! pub enum ReportKind {
+//!     Initial,
+//!     Heartbeat,
+//!     Shutdown
+//! }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct Flags { /* ... */ }
+//! struct ApplicationConfig {
+//!     version: String,
+//!     container_runtime: String,
+//!     flags: Flags,
+//!     components: Vec<Component>
+//! }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct Component { /* ... */ }
+//! struct Flags {
+//!     is_admin: bool,
+//!     is_preview_mode: bool,
+//!     telemetry_enabled: bool
+//! }
 //!
 //! #[derive(Serialize, Deserialize)]
-//! struct ApplicationConfig { /* ... */ }
+//! struct Component {
+//!     name: String,
+//!     version: String,
+//!     maintainer: Option<String>,
+//!     target_platform: String
+//! }
 //! ```
 //!
 //! ## Fine-tune propagation
