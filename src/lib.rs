@@ -157,6 +157,8 @@
 //!
 //! ```rust
 //! # use serde::{Serialize, Deserialize};
+//! # #[derive(Serialize, Deserialize)]
+//! # struct Uuid;
 //! #[derive(Serialize, Deserialize)]
 //! struct SystemReport {
 //!     report_id: Uuid,
