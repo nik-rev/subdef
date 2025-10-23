@@ -1,5 +1,3 @@
-// NOTE: This code assumes the 'uuid' and 'serde' crates are available and
-// 'Deserialize' and 'Serialize' are imported via a prelude.
 #![allow(unused, clippy::unnecessary_operation, clippy::no_effect)]
 
 use serde::Deserialize;
