@@ -1,4 +1,4 @@
-toolchain.channel = "nightly"
+toolchain.channel = "1.90"
 toolchain.components = [
   "rust-analyzer",
   "cargo",
