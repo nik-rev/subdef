@@ -4,17 +4,18 @@
 //! ![msrv](https://img.shields.io/badge/msrv-1.68-blue?style=flat-square&logo=rust)
 //! [![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
 //!
-//! This crate provides an attribute macro [`#[subdef]`](subdef) - it simplifies the creation of nested
-//! structures, reduces boilerplate and helps keep logic in a single place.
+//! This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it lets you define nested structs and enums "inline", to keep all definitions in a single place and reduce how much scrolling you have to do
+//!
+//! Crates like `subdef` are commonly used to model nested APIs 1:1 using `serde`
 //!
 //! ```toml
 //! [dependencies]
 //! subdef = "0.1"
 //! ```
 //!
-//! It is a successor to [`nestify`](https://crates.io/crates/nestify).
-//! The biggest distinguishing feature is that items marked with `#[subdef]` can be
-//! entirely formatted by `rustfmt`.
+//! It successor to crates like [`nestify`](https://crates.io/crates/nestify), [`nest_struct`](https://crates.io/crates/nest_struct) and [`structstruck`](https://lib.rs/crates/structstruck).
+//!
+//! What distinguishes `subdef` from the others is that types that have `#[subdef]` applied to them can be fully formatted by `rustfmt`.
 //!
 //! # Usage
 //!
@@ -198,6 +199,8 @@
 //! ```
 //!
 //! ## Fine-tune propagation
+//!
+//! **Note:** This is an advanced section, most use cases won't need this feature
 //!
 //! You can attach labels to each attribute:
 //!
