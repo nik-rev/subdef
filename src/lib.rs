@@ -538,7 +538,7 @@ fn expand_subdef_attrs(
     adt_attrs.retain_mut(|attr| {
         if attr.path().is_ident("subdef") {
             extracted.push(std::mem::replace(attr, parse_quote!(#[dummy])));
-            // We'll then just remove teh dummy attribute
+            // We'll then just remove the dummy attribute
             false
         } else {
             true
