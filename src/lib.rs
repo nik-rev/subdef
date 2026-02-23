@@ -1,17 +1,10 @@
-//! [![crates.io](https://img.shields.io/crates/v/subdef?style=flat-square&logo=rust)](https://crates.io/crates/subdef)
-//! [![docs.rs](https://img.shields.io/badge/docs.rs-subdef-blue?style=flat-square&logo=docs.rs)](https://docs.rs/subdef)
-//! ![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue?style=flat-square)
-//! ![msrv](https://img.shields.io/badge/msrv-1.68-blue?style=flat-square&logo=rust)
-//! [![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
+#![doc = nik_rev::badges!("subdef")]
 //!
 //! This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it lets you define nested structs and enums "inline", to keep all definitions in a single place and reduce how much scrolling you have to do
 //!
 //! Crates like `subdef` are commonly used to model nested APIs 1:1 using `serde`
 //!
-//! ```toml
-//! [dependencies]
-//! subdef = "0.1"
-//! ```
+#![doc = nik_rev::add_dependency!()]
 //!
 //! It successor to crates like [`nestify`](https://crates.io/crates/nestify), [`nest_struct`](https://crates.io/crates/nest_struct) and [`structstruck`](https://lib.rs/crates/structstruck).
 //!

@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "nik-rev"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5196a96c9bd8efd8755521e10893ba27bece277920b96330fb479430818df7a"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -60,6 +66,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "subdef"
 version = "0.1.2"
 dependencies = [
+ "nik-rev",
  "proc-macro2",
  "quote",
  "serde",
