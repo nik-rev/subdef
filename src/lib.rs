@@ -1,4 +1,4 @@
-#![doc = nik_rev::badges!("subdef")]
+#![doc = nik_rev::badges!(repo = "subdef")]
 //!
 //! This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it lets you define nested structs and enums "inline", to keep all definitions in a single place and reduce how much scrolling you have to do
 //!
