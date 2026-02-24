@@ -1,10 +1,10 @@
-#![doc = nik_rev::badges!(repo = "subdef")]
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/GENERATED_BADGES"))]
 //!
 //! This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it lets you define nested structs and enums "inline", to keep all definitions in a single place and reduce how much scrolling you have to do
 //!
 //! Crates like `subdef` are commonly used to model nested APIs 1:1 using `serde`
 //!
-#![doc = nik_rev::add_dependency!()]
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/GENERATED_ADD_DEP"))]
 //!
 //! It successor to crates like [`nestify`](https://crates.io/crates/nestify), [`nest_struct`](https://crates.io/crates/nest_struct) and [`structstruck`](https://lib.rs/crates/structstruck).
 //!

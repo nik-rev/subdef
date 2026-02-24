@@ -14,7 +14,6 @@ license = "MIT OR Apache-2.0"
 syn = { version = "2.0", features = ["full", "extra-traits", "visit-mut"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-nik-rev = "0.1.0"
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -22,3 +21,6 @@ static_assertions = "1.1"
 
 [lib]
 proc-macro = true
+
+[build-dependencies]
+nik-rev = "0.1.7"
