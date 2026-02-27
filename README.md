@@ -33,7 +33,7 @@ It successor to crates like [`nestify`](https://crates.io/crates/nestify), [`nes
 
 What distinguishes `subdef` from the others is that types that have `#[subdef]` applied to them can be fully formatted by `rustfmt`.
 
-# Usage
+## Usage
 
 Apply `#[subdef]` to your type to be able to define inline types in individual fields
 
@@ -85,7 +85,7 @@ enum Status {
 }
 ```
 
-## How it works
+### How it works
 
 Fields on types marked with `#[subdef]` can have the type `[Type; { Item }]` where `Type` is the actual
 type of the field, and `Item` is the `struct` or `enum`.
@@ -123,7 +123,7 @@ struct One {
 Admittedly, the syntax is a little strange, but that’s a small price to pay for the
 convenience of automatic formatting by `rustfmt`!
 
-# Propagate attributes
+## Propagate attributes
 
 Give attributes to `subdef(...)`, and they will be propagated recursively to all inline types
 
@@ -204,7 +204,7 @@ struct Component {
 }
 ```
 
-## Fine-tune propagation
+### Fine-tune propagation
 
 **Note:** This is an advanced section, most use cases won’t need this feature
 

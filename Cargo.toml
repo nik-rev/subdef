@@ -21,6 +21,3 @@ static_assertions = "1.1"
 
 [lib]
 proc-macro = true
-
-[build-dependencies]
-nik-rev = "0.1.7"
