@@ -1,6 +1,6 @@
 [package]
 name = "subdef"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Expressive attribute macro to define nested structures"
 rust-version = "1.68"
