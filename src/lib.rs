@@ -2,7 +2,7 @@
 #![doc = concat!("[![docs.rs](https://img.shields.io/docsrs/", env!("CARGO_PKG_NAME"), "?style=flat-square&logo=docs.rs)](https://docs.rs/", env!("CARGO_PKG_NAME"), ")")]
 #![doc = "![license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue?style=flat-square)"]
 #![doc = concat!("![msrv](https://img.shields.io/badge/msrv-", env!("CARGO_PKG_RUST_VERSION"), "-blue?style=flat-square&logo=rust)")]
-#![doc = concat!("[![github](https://img.shields.io/github/stars/nik-rev/", env!("CARGO_PKG_NAME"), ")](https://github.com/nik-rev/", env!("CARGO_PKG_NAME"), ")")]
+//! [![github](https://img.shields.io/github/stars/nik-rev/subdef)](https://github.com/nik-rev/subdef)
 //!
 //! This crate provides an attribute macro [`#[subdef]`](https://docs.rs/subdef/latest/subdef/attr.subdef.html) - it lets you define nested structs and enums "inline", to keep all definitions in a single place and reduce how much scrolling you have to do
 //!
