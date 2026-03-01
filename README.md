@@ -288,7 +288,7 @@ struct ShippingDetails {
 This will make `#[subdef]` globally accessible in your entire crate, without needing to import it:
 
 ```rust
-#[macro_use(subef)]
+#[macro_use(subdef)]
 extern crate subdef;
 ```
 
