@@ -610,7 +610,19 @@ fn expand_subdef_attrs(
         .cloned();
 
     // Add attributes to the generated ADT
-    adt_attrs.extend(attrs.map(|attr| parse_quote!(#[#attr])));
+    //
+    // Insert at the start, so let's say we have something like this:
+    //
+    // #[subdef(derive(Serialize, Deserialize))]
+    // #[serde(deny_unknown_fields)]
+    //
+    // That will expand into this:
+    //
+    // #[derive(Serialize, Deserialize)]
+    // #[serde(deny_unknown_fields)]
+    //
+    // We must insert our attributes (in this case: the `derive`s at the start)
+    adt_attrs.splice(0..0, attrs.map(|attr| parse_quote!(#[#attr])));
 }
 
 /// A single attribute

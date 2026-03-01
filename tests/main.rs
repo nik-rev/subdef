@@ -9,6 +9,18 @@ use subdef::subdef;
 
 struct Uuid;
 
+#[subdef(derive(Serialize, Deserialize))]
+#[serde(deny_unknown_fields)]
+struct Profile {
+    id: u32,
+    info: [_; {
+        struct Info {
+            age: u8,
+            email: String,
+        }
+    }],
+}
+
 #[test]
 fn r#struct() {
     #[subdef]
