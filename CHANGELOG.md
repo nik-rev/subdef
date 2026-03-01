@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/nik-rev/subdef/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/nik-rev/subdef/compare/v0.1.5...HEAD
+
+## [v0.1.5] - 2026-03-01
+
+[v0.1.5]: https://github.com/nik-rev/subdef/compare/v0.1.4...v0.1.5
 
 - Fixed attributes being inserted at the end instead of at the start
 
