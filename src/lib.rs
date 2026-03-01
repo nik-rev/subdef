@@ -278,6 +278,15 @@
 //!     confirmation_status: DetailsConfirmed,
 //! }
 //! ```
+//!
+//! # Global Import
+//!
+//! This will make `#[subdef]` globally accessible in your entire crate, without needing to import it:
+//!
+//! ```
+//! #[macro_use(subef)]
+//! extern crate subdef;
+//! ```
 
 use proc_macro::TokenStream;
 use quote::quote;
