@@ -288,21 +288,31 @@
 //! extern crate subdef;
 //! ```
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::hash::Hash;
+
 use proc_macro::TokenStream;
 use quote::quote;
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
-use syn::{
-    parenthesized,
-    parse::{Parse, ParseBuffer, ParseStream},
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    visit_mut::VisitMut,
-    Attribute, Error, Expr, Field, Ident, Item, ItemStruct, Token, Type, TypeArray,
-};
+use syn::parenthesized;
+use syn::parse::Parse;
+use syn::parse::ParseBuffer;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::visit_mut::VisitMut;
+use syn::Attribute;
+use syn::Error;
+use syn::Expr;
+use syn::Field;
+use syn::Ident;
+use syn::Item;
+use syn::ItemStruct;
+use syn::Token;
+use syn::Type;
+use syn::TypeArray;
 
 #[proc_macro_attribute]
 pub fn subdef(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -371,14 +381,16 @@ fn expand_adt(
 ) {
     let (attrs, fields): (_, Box<dyn Iterator<Item = &mut Field>>) = match adt {
         Item::Struct(adt) => (&mut adt.attrs, Box::new(adt.fields.iter_mut())),
-        Item::Enum(adt) => (
-            &mut adt.attrs,
-            Box::new(
-                adt.variants
-                    .iter_mut()
-                    .flat_map(|variant| variant.fields.iter_mut()),
-            ),
-        ),
+        Item::Enum(adt) => {
+            (
+                &mut adt.attrs,
+                Box::new(
+                    adt.variants
+                        .iter_mut()
+                        .flat_map(|variant| variant.fields.iter_mut()),
+                ),
+            )
+        }
         Item::Union(adt) => (&mut adt.attrs, Box::new(adt.fields.named.iter_mut())),
         item => {
             errors.push(Error::new(

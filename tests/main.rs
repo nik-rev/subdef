@@ -1,10 +1,11 @@
 #![allow(unused, clippy::unnecessary_operation, clippy::no_effect)]
 
+use std::fmt::Debug;
+
 use serde::Deserialize;
 use serde::Serialize;
 use static_assertions::assert_impl_all;
 use static_assertions::assert_not_impl_all;
-use std::fmt::Debug;
 use subdef::subdef;
 
 struct Uuid;
